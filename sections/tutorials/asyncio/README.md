@@ -10,7 +10,7 @@ Event-loops were designed to address a simple issue: In some cases, your program
 
 This means that if you read from a file, or make an http request, or anything that requires some time, your thread will block until your get a response.
 
-Event-loops solve that issue by making you write your program in such a way that you can execute something else while requests are pending.
+Event-loops solve that issue by making you write your program in such a way that you can execute something else while requests are pending.  This alows you to run a process across multiple tics<sup>According to prototyping.</sup>.
 
 But this is not magic, in order for an event-loop to work and "parallelize" your code, it needs to "take control of your thread".
 
@@ -38,6 +38,7 @@ Let's take a look at how a synchronous code may look like (script for a Python C
 
 ```py
 # Echo client program
+# https://docs.python.org/3/library/socket.html
 import socket
 
 HOST = 'daring.cwi.nl'    # The remote host
@@ -69,7 +70,9 @@ To solve this issue, you have three solutions:
    It works, but throwing errors on each logic frame and re-executing the same code over and over until it works is a bit annoying to reason about.
 
    ```py
+   # <sub>TCP over a WAN will almost certainly take longer than one tic.  This will only work in a LAN.  It almost certainly will block while sending or receving a packet.</sub>
    # Echo client program (non-blocking)
+   # https://docs.python.org/3/library/socket.html
    import socket
 
    HOST = 'daring.cwi.nl'    # The remote host
@@ -82,7 +85,9 @@ To solve this issue, you have three solutions:
 
        # Test if someone already expects a response somehow
        if client_socket is None:
+            # <sub>Using two equation signs in one command is extreemly uncommin.  This needs an explanation, even in an advanced tutorial.</sub>
             client_socket = owner['socket'] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            # <sub>Was s defined somewhere?  I appologise if I'm just not seeing it.</sub>
             s.settimeout(0)
             s.connect((HOST, PORT))
             s.sendall(b'Hello, world')
@@ -116,7 +121,9 @@ To solve this issue, you have three solutions:
 
    ```py
    # Echo client program (threading)
+   # https://docs.python.org/3/library/threading.html
    import threading
+   # https://docs.python.org/3/library/socket.html
    import socket
 
    HOST = 'daring.cwi.nl'    # The remote host
@@ -146,6 +153,7 @@ To solve this issue, you have three solutions:
 
    ```py
    # python >= 3.6
+   # https://docs.python.org/3/library/asyncio.html
    import asyncio
 
    async def tcp_echo_client(message):
@@ -167,6 +175,7 @@ To solve this issue, you have three solutions:
 
    def pycontroller_always(controller):
        logic_frame_time = 1 / bge.logic.getLogicTicRate()
+       # <sub>Why not just use asyncio.sleep(0)?  This waist logic time for no apperant reason.</sub>
        asyncio.run(asyncio.sleep(logic_frame_time / 3)) # arbitrary number
    ```
 
@@ -174,6 +183,7 @@ To solve this issue, you have three solutions:
 
    ```py
    # python < 3.6
+   # https://docs.python.org/3/library/asyncio.html
    import asyncio
 
    @asyncio.coroutine
@@ -200,12 +210,12 @@ To solve this issue, you have three solutions:
        loop.run_until_complete(asyncio.sleep(logic_frame_time / 3)) # arbitrary number
    ```
 
-   Please note how recent version are way more prettier!
+   Please note how recent version are much prettier!
 
-   What happens here looks a bit complex, but it is also very powerful. We run an event-loop during 1/3 of a logic frame time (roughly 16.7ms for a logic frame, which means 5.57ms for asyncio here). During this time, the event-loop will block the whole thread and do its thing, waiting for I/O events to happen in order to resume registered tasks.
+   What happens here looks a bit complex, but it is also very powerful. We run an event-loop during 1/3 of a logic frame time <sub>I'm pretty sure the event-loop runs even when your not sleeping.  Try runing it with asyncio.sleep(0)</sub> (roughly 16.7ms for a logic frame, which means 5.57ms for asyncio here). During this time, the event-loop will block the whole thread and do its thing, waiting for I/O events to happen in order to resume registered tasks.
 
    In places where you did use the `await` keyword, your code can be put on "wait" (as in, not executed anymore) without blocking the whole thread. The execution state is kept in memory, but something else may execute in place. Once whatever that was awaited returns, the event-loop may resume execution of the coroutine that was stuck waiting for the event, until the next `await` or `return` statements.
 
    In Python, coroutine execution is wrapped by a `Task` object, which shares ideas with `Future` objects.
 
-   They basically represent the state of the execution: from `pending` to `cancelled`, `rejected` or `resolved`. Since a coroutine function can be put on hold depending on the I/O state, it makes sense to get a return value that represents this process of resolution, which is anything but instantaneous.
+   They <sub>they who?</sub> basically represent the state of the execution <sub>the execution of what?</sub> : from `pending` to `cancelled`, `rejected` or `resolved`<sub>How are these states retreved?</sub>. Since a coroutine function can be put on hold depending on the I/O state <sub>How?</sub>, it makes sense to get a return value <sub>Are you saying that you are getting a return value from some where, or are making one of the examples return something?</sub> that represents this process of resolution <sub>are you refering to the coroutines resolution or the example fucntions?</sub>, which is anything but instantaneous.  <sub>I feel that this last sentince is confusing and says very little.  It should probly be acompanied by code examples, removed, or converted to a stub indicating the need for future eludiation.</sub>
